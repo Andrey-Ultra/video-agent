@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Env vars / secrets
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# Project data (frames, videos, outputs)
+scens/frames/
+frames/
+tests
+*.mp4
+*.avi
+*.mov
+
+
+# OS
+.DS_Store
