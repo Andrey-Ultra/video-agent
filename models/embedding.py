@@ -1,5 +1,5 @@
 import numpy as np
-from feature import Feature
+from models.feature import Feature
 
 class ClipEmbedding(Feature):
     def __init__(self, vector):

@@ -1,7 +1,7 @@
-opencv-python
-numpy
+av
 pillow
+numpy
+torch
+transformers
+ffmpeg-python
 python-dotenv
-sentence-transformers
-scipy
-matplotlib

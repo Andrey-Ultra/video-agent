@@ -2,7 +2,10 @@ from models.embedding import ClipEmbedding
 from models.point import VideoPoint
 
 
-def simple(vectors: list[tuple[VideoPoint, ClipEmbedding]], p: float = 0.9) -> list[tuple[int, int]]:
+def simple(vectors: list[tuple[VideoPoint, ClipEmbedding]], p: float ) -> list[tuple[int, int]]:
+    if not vectors:
+        return []
+
     scenes = []
 
     last_embedding = None

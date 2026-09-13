@@ -1,3 +1,5 @@
+import logging
+
 from transformers import CLIPProcessor, CLIPModel
 from PIL import Image
 import torch
@@ -10,11 +12,19 @@ _processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
 _model.eval()
 
 # если есть GPU — сильно ускорит дело
-_device = "cuda" if torch.cuda.is_available() else "cpu"
+# cuda: NVIDIA (Linux/Windows), mps: Apple Silicon (M1-M4), иначе — CPU
+if torch.cuda.is_available():
+    _device = "cuda"
+elif torch.backends.mps.is_available():
+    _device = "mps"
+else:
+    _device = "cpu"
+
+logging.getLogger(__name__).info("CLIP работает на устройстве: %s", _device)
 _model.to(_device)
 
 
-def frame_to_vec(frame: Image) -> ClipEmbedding:
+def frame_to_vec(frame: Image.Image) -> ClipEmbedding:
 
     inputs = _processor(images=frame, return_tensors="pt").to(_device)
     with torch.no_grad():

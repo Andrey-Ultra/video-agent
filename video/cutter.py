@@ -1,5 +1,4 @@
 import ffmpeg
-import subprocess
 
 
 def get_video_fps(video_path: str) -> float:
