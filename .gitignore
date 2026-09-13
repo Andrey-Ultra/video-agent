@@ -20,7 +20,8 @@ env/
 # Project data (frames, videos, outputs)
 scens/frames/
 frames/
-tests
+tests/
+test/
 *.mp4
 *.avi
 *.mov
