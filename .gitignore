@@ -22,6 +22,8 @@ scens/frames/
 frames/
 tests/
 test/
+chroma_data/
+storage/thumbnails_data
 *.mp4
 *.avi
 *.mov

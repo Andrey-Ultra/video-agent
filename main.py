@@ -1,6 +1,9 @@
 from video import video_parse
 from frame_embeddings import em_clip
-from scene_detection import simple_em
+from scene_detection import adaptive_em
+from video_embeddings import em_xclip
+import uuid
+from storage import vector_store, thumbnails
 import logging
 
 logging.basicConfig(
@@ -11,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    video_path = "/Users/au/Documents/git/video-agent/test/IMG_3602 2.MOV"
+    video_path = "/Users/au/Documents/git/video-agent/test/fall2.mp4"
 
     mas = []
     last_vec = None
@@ -31,10 +34,48 @@ def main():
 
     print(ms)
 
-    scenes = simple_em.simple(mas, 0.2)
+    scenes = adaptive_em.adaptive(mas)
     logger.info("Найдено сцен: %d", len(scenes))
 
     print(scenes)
+
+    # --- второй проход: эмбеддинг видео-сегментов ---
+    seg_idx = 0
+    buffer = []
+
+    seg_start_ts = 0
+
+    for point, frame in video_parse.extract_frames(video_path, fps_sample=1.0):
+        seg_start, seg_end = scenes[seg_idx]
+
+        buffer.append(frame)
+
+        if point.number >= seg_end:
+            segment_id = str(uuid.uuid4())
+
+            vec = em_xclip.segment_to_vec(buffer)
+            thumb_path = thumbnails.save_thumbnail(buffer, segment_id)
+
+            vector_store.add_segment(
+                segment_id=segment_id,
+                vector=vec,
+                video_path=video_path,
+                start_frame=seg_start,
+                end_frame=seg_end,
+                start_ts=seg_start_ts,
+                end_ts=point.timestamp,
+                thumbnail_path=thumb_path,
+            )
+
+            logger.info("Сегмент %d (%d-%d) сохранён в БД, миниатюра: %s", seg_idx, seg_start, seg_end, thumb_path)
+
+            buffer = []
+            seg_start_ts = point.timestamp
+            seg_idx += 1
+
+            if seg_idx >= len(scenes):
+                break
+
 
 
 if __name__ == "__main__":
