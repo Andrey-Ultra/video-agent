@@ -1,3 +1,5 @@
+import os
+
 from video import video_parse
 from frame_embeddings import em_clip
 from scene_detection import adaptive_em
@@ -12,15 +14,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+FPS_SAMPLE = 10.0
 
 def main():
-    video_path = "/Users/au/Documents/git/video-agent/test/fall2.mp4"
+    video_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test", "/home/au/Документы/git/video-agent/test/scot-2.mp4")
 
     mas = []
     last_vec = None
     ms = []
 
-    for point, frame in video_parse.extract_frames(video_path, fps_sample=1.0):
+    for point, frame in video_parse.extract_frames(video_path, fps_sample=FPS_SAMPLE):
         vec = em_clip.frame_to_vec(frame)
         logger.info(f"Обработан {frame}")
 
@@ -34,7 +37,7 @@ def main():
 
     print(ms)
 
-    scenes = adaptive_em.adaptive(mas)
+    scenes = adaptive_em.adaptive(mas, 2)
     logger.info("Найдено сцен: %d", len(scenes))
 
     print(scenes)
@@ -45,7 +48,7 @@ def main():
 
     seg_start_ts = 0
 
-    for point, frame in video_parse.extract_frames(video_path, fps_sample=1.0):
+    for point, frame in video_parse.extract_frames(video_path, fps_sample=FPS_SAMPLE):
         seg_start, seg_end = scenes[seg_idx]
 
         buffer.append(frame)
