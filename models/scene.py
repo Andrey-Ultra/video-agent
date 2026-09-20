@@ -1,40 +1,28 @@
-from dataclasses import dataclass
-from video import get_video_info
+from dataclasses import dataclass, field
+from video import get_duration_ms
 
-@dataclass
+@dataclass(frozen=True, order=True)
 class Scene:
-    start_frame: int  # Включительно
-    end_frame: int  # Невключительно
-    fps: float
-    video_path: str
+    start_ms: int  # включительно
+    end_ms: int    # невключительно
+    video_path: str = field(compare=False)
 
     @classmethod
     def from_video(cls, video_path: str) -> "Scene":
-        from video.video_parse import get_video_info
+        return cls(start_ms=0, end_ms=get_duration_ms(video_path), video_path=video_path)
 
-        frame_count, fps = get_video_info(video_path)
-
-        return cls(
-            start_frame=0,
-            end_frame=frame_count,
-            fps=fps,
-            video_path=video_path,
-        )
+    def __post_init__(self):
+        if not 0 <= self.start_ms < self.end_ms:
+            raise ValueError(f"Некорректная сцена: {self.start_ms}-{self.end_ms}")
 
     @property
     def start_seconds(self) -> float:
-        return self.start_frame / self.fps
+        return self.start_ms / 1000
 
     @property
     def end_seconds(self) -> float:
-        return self.end_frame / self.fps
+        return self.end_ms / 1000
 
     @property
     def duration_seconds(self) -> float:
-        return (self.end_frame - self.start_frame) / self.fps
-
-    def __lt__(self, other: "Scene") -> bool:
-        if not isinstance(other, Scene):
-            return NotImplemented
-        return self.start_frame < other.start_frame
-
+        return (self.end_ms - self.start_ms) / 1000

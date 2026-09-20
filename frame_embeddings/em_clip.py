@@ -1,65 +1,60 @@
 import logging
 
-from transformers import CLIPProcessor, CLIPModel
-from PIL import Image
 import torch
+from PIL import Image
+from transformers import CLIPModel, CLIPProcessor
+
 from models.embedding import ClipEmbedding
+from models.interfaces import Frame, Vec
 
 logger = logging.getLogger(__name__)
 
-# Загружаем один раз (глобально), а не при каждом вызове —
-# иначе будешь заново тянуть веса и инициализировать модель на каждый кадр
-logger.info("Загрузка CLIP")
-_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
-_processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
-_model.eval()
 
-# если есть GPU — сильно ускорит дело
-# cuda: NVIDIA (Linux/Windows), mps: Apple Silicon (M1-M4), иначе — CPU
-if torch.cuda.is_available():
-    _device = "cuda"
-elif torch.backends.mps.is_available():
-    _device = "mps"
-else:
-    _device = "cpu"
-
-_model.to(_device)
-logger.info("CLIP готов, устройство: %s", _device)
+def _pick_device() -> str:
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
 
 
-def frames_to_vecs(
-    frames: list[tuple[int, Image.Image]],
-    batch_size: int = 32,
-) -> list[tuple[int, ClipEmbedding]]:
-    """
-    frames: список (frame_number, image)
-    возвращает: список (frame_number, embedding) в том же порядке
-    """
-    results = []
+class ClipEmbedder:
+    """Реализация Embedder: кадры (мс, картинка) -> признаки (мс, ClipEmbedding)."""
 
-    for i in range(0, len(frames), batch_size):
-        chunk = frames[i:i + batch_size]
-        chunk_numbers = [num for num, _ in chunk]
-        chunk_images = [img for _, img in chunk]
+    def __init__(
+        self,
+        model_name: str = "openai/clip-vit-large-patch14",
+        batch_size: int = 32,
+        device: str | None = None,
+    ):
+        self.batch_size = batch_size
+        self.device = device or _pick_device()
 
-        inputs = _processor(images=chunk_images, return_tensors="pt").to(_device)
-        with torch.no_grad():
-            output = _model.get_image_features(**inputs)
+        logger.info("Загрузка CLIP: %s", model_name)
+        self._processor = CLIPProcessor.from_pretrained(model_name)
+        self._model = CLIPModel.from_pretrained(model_name).to(self.device).eval()
+        logger.info("CLIP готов, устройство: %s", self.device)
 
-        if hasattr(output, "pooler_output"):
-            batch_embeds = output.pooler_output
-        elif hasattr(output, "image_embeds"):
-            batch_embeds = output.image_embeds
-        else:
-            batch_embeds = output
+    def __call__(self, frames: list[Frame]) -> list[Vec]:
+        results: list[Vec] = []
 
-        batch_embeds = batch_embeds.cpu().detach().numpy()
+        for i in range(0, len(frames), self.batch_size):
+            chunk = frames[i:i + self.batch_size]
+            times = [t for t, _ in chunk]
+            images = [img for _, img in chunk]
 
-        # zip гарантирует, что i-й номер кадра соответствует i-му эмбеддингу,
-        # т.к. порядок в inputs строго соответствует порядку chunk_images
-        results.extend(
-            (num, ClipEmbedding(vec))
-            for num, vec in zip(chunk_numbers, batch_embeds)
-        )
+            inputs = self._processor(images=images, return_tensors="pt").to(self.device)
+            with torch.no_grad():
+                output = self._model.get_image_features(**inputs)
 
-    return results
+            if hasattr(output, "pooler_output"):
+                embeds = output.pooler_output
+            elif hasattr(output, "image_embeds"):
+                embeds = output.image_embeds
+            else:
+                embeds = output
+
+            embeds = embeds.cpu().numpy()
+            results.extend((t, ClipEmbedding(v)) for t, v in zip(times, embeds))
+
+        return results
