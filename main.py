@@ -5,7 +5,7 @@ from frame_embeddings import em_clip
 from scene_detection import adaptive_em
 from video_embeddings import em_xclip
 import uuid
-from storage import vector_store, thumbnails
+from storage import chm_db, thumbnails
 import logging
 
 logging.basicConfig(
@@ -59,7 +59,7 @@ def main():
             vec = em_xclip.segment_to_vec(buffer)
             thumb_path = thumbnails.save_thumbnail(buffer, segment_id)
 
-            vector_store.add_segment(
+            chm_db.add_segment(
                 segment_id=segment_id,
                 vector=vec,
                 video_path=video_path,

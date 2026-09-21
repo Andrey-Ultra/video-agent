@@ -8,7 +8,7 @@ from export.export_to_shotcut import export_mlt
 from logging_setup import setup_logging
 from storage import (
     count_video_scenes, find_neighbors, get_scene, get_scene_card, get_scene_cards,
-    get_video_path, init_sql_db, list_video_scenes, vector_store,
+    get_video_path, init_sql_db, list_video_scenes, chm_db,
 )
 from video import extract_frame_at
 from video_embeddings.em_xclip import text_to_vec
@@ -53,7 +53,7 @@ def search_scenes(query: str, top_k: int = 5) -> list[dict]:
     Returns scene cards, best match first. 'score' is similarity (higher is better);
     compare scores between results rather than treating them as absolute.
     """
-    hits = vector_store.search(text_to_vec(query), top_k=min(top_k, 20))
+    hits = chm_db.search(text_to_vec(query), top_k=min(top_k, 20))
     scores = {scene_id: _score(distance) for scene_id, distance in hits}
 
     cards = get_scene_cards([scene_id for scene_id, _ in hits])
@@ -66,7 +66,7 @@ def search_videos(query: str, top_k: int = 3) -> list[dict]:
     Find the videos that best match a text description (English). Ranked by the best
     matching scene inside each video. Use list_scenes(video_id) to see all its scenes.
     """
-    hits = vector_store.search(text_to_vec(query), top_k=VIDEO_SEARCH_CANDIDATES)
+    hits = chm_db.search(text_to_vec(query), top_k=VIDEO_SEARCH_CANDIDATES)
     scores = {scene_id: _score(distance) for scene_id, distance in hits}
 
     videos: dict[int, dict] = {}
