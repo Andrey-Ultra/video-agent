@@ -1,7 +1,8 @@
+import frame_embeddings
 from models import Scene
 from video import extract_frames
 
-from models.interfaces import Embedder, Splitter
+from models import FeatureExtractor, Clusterer
 
 import logging
 
@@ -12,8 +13,8 @@ MAX_BUF_SIZE = 32
 
 def split_scene(
         scene: Scene,
-        embed: Embedder,
-        split: Splitter,
+        embed: FeatureExtractor,
+        split: Clusterer,
         max_buffer_size: int = MAX_BUF_SIZE
 ) -> list[Scene]:
     buf_frame = []
@@ -53,3 +54,14 @@ def split_scene(
         ind += 1
 
     return scenes_ans
+
+
+
+class EmSceneDetector:
+    def __init__(self, frame_em: FeatureExtractor, cluster: Clusterer, max_buffer_size: int = MAX_BUF_SIZE):
+        self.frame_em = frame_em
+        self.cluster = cluster
+        self.max_buffer_size = max_buffer_size
+
+    def __call__(self, scene: Scene) -> list[Scene]:
+        return split_scene(scene, self.frame_em, self.cluster, self.max_buffer_size)

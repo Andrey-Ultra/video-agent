@@ -7,7 +7,7 @@ from models import Scene
 logger = logging.getLogger(__name__)
 
 
-def split_by_cuts(scene: Scene, threshold: float = 27.0) -> list[Scene]:
+def split_by_cuts(scene: Scene, threshold: float) -> list[Scene]:
     """
     Режет сцену по склейкам (PySceneDetect, ContentDetector).
     threshold: чем меньше, тем больше склеек находит (по умолчанию 27).
@@ -38,3 +38,10 @@ def split_by_cuts(scene: Scene, threshold: float = 27.0) -> list[Scene]:
 
     logger.info("Найдено склеек: %d, сцен: %d", len(result) - 1, len(result))
     return result
+
+class PySceneDetector:
+    def __init__(self, threshold: float = 27.0):
+        self.threshold = threshold
+
+    def __call__(self, scene: Scene) -> list[Scene]:
+        return split_by_cuts(scene, self.threshold)

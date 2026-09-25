@@ -1,14 +1,18 @@
 from typing import Protocol
-from PIL import Image
-from models.feature import Feature
-
-Frame = tuple[int, Image.Image]
-Vec = tuple[int, Feature]
+from models import (Scene, Frame, Vec)
 
 
-class Embedder(Protocol):
+class FeatureExtractor(Protocol):
     def __call__(self, frames: list[Frame]) -> list[Vec]: ...
 
 
-class Splitter(Protocol):
+class Clusterer(Protocol):
     def __call__(self, vectors: list[Vec]) -> list[tuple[int, int]]: ...
+
+
+class Exporter(Protocol):
+    def __call__(self, scenes: list[Scene], path: str) -> None: ...
+
+
+class SceneDetector(Protocol):
+    def __call__(self, scene: Scene) -> list[Scene]: ...

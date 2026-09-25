@@ -4,12 +4,9 @@ import os
 
 from mcp.server.mcpserver import Image, MCPServer
 
-from export.export_to_shotcut import export_mlt
+import storage
+from export.export_to_mlt import export_mlt
 from logging_setup import setup_logging
-from storage import (
-    count_video_scenes, find_neighbors, get_scene, get_scene_card, get_scene_cards,
-    get_video_path, init_sql_db, list_video_scenes, chm_db,
-)
 from video import extract_frame_at
 from video_embeddings.em_xclip import text_to_vec
 
@@ -46,6 +43,17 @@ def _score(distance: float) -> float:
     return round(1 - distance, 3)
 
 
+def _scene_card(scene: storage.SceneRecord) -> dict:
+    return {
+        "scene_id": scene.id,
+        "video_id": scene.video_id,
+        "video": os.path.basename(scene.video.path),
+        "start_s": round(scene.start_ms / 1000, 2),
+        "end_s": round(scene.end_ms / 1000, 2),
+        "duration_s": round((scene.end_ms - scene.start_ms) / 1000, 2),
+    }
+
+
 @mcp.tool()
 def search_scenes(query: str, top_k: int = 5) -> list[dict]:
     """
@@ -53,11 +61,8 @@ def search_scenes(query: str, top_k: int = 5) -> list[dict]:
     Returns scene cards, best match first. 'score' is similarity (higher is better);
     compare scores between results rather than treating them as absolute.
     """
-    hits = chm_db.search(text_to_vec(query), top_k=min(top_k, 20))
-    scores = {scene_id: _score(distance) for scene_id, distance in hits}
-
-    cards = get_scene_cards([scene_id for scene_id, _ in hits])
-    return [{**card, "score": scores[card["scene_id"]]} for card in cards]
+    hits = storage.search_scenes(text_to_vec(query), top_k=min(top_k, 20))
+    return [{**_scene_card(scene), "score": _score(distance)} for scene, distance in hits]
 
 
 @mcp.tool()
@@ -66,15 +71,15 @@ def search_videos(query: str, top_k: int = 3) -> list[dict]:
     Find the videos that best match a text description (English). Ranked by the best
     matching scene inside each video. Use list_scenes(video_id) to see all its scenes.
     """
-    hits = chm_db.search(text_to_vec(query), top_k=VIDEO_SEARCH_CANDIDATES)
-    scores = {scene_id: _score(distance) for scene_id, distance in hits}
+    hits = storage.search_scenes(text_to_vec(query), top_k=VIDEO_SEARCH_CANDIDATES)
 
     videos: dict[int, dict] = {}
-    for card in get_scene_cards([scene_id for scene_id, _ in hits]):  # порядок: лучшие первыми
+    for scene, distance in hits:  # порядок: лучшие первыми
+        card = _scene_card(scene)
         video = videos.setdefault(card["video_id"], {
             "video_id": card["video_id"],
             "video": card["video"],
-            "best_score": scores[card["scene_id"]],
+            "best_score": _score(distance),
             "matching_scenes": 0,
             "top_scene_ids": [],
         })
@@ -94,22 +99,22 @@ def list_scenes(video_id: int, offset: int = 0, limit: int = 30) -> dict:
     """
     limit = min(limit, 50)
     return {
-        "total": count_video_scenes(video_id),
+        "total": storage.count_scenes(video_id),
         "offset": offset,
-        "scenes": list_video_scenes(video_id, offset=offset, limit=limit),
+        "scenes": [_scene_card(s) for s in storage.list_scenes(video_id, offset=offset, limit=limit)],
     }
 
 
 @mcp.tool()
 def scene_info(scene_id: int) -> dict:
     """Full card of one scene: video, start/end/duration in seconds and description."""
-    return get_scene_card(scene_id)
+    return _scene_card(storage.get_scene(scene_id))
 
 
 @mcp.tool()
 def get_frame(video_id: int, time_s: float) -> Image:
     """Return one frame of a video at the given time in seconds (to visually check a moment)."""
-    frame = extract_frame_at(get_video_path(video_id), int(time_s * 1000))
+    frame = extract_frame_at(storage.get_video_path(video_id), int(time_s * 1000))
     frame = frame.convert("RGB")
     frame.thumbnail((768, 768))   # экономим токены
 
@@ -121,8 +126,8 @@ def get_frame(video_id: int, time_s: float) -> Image:
 @mcp.tool()
 def get_neighbors(scene_id: int, n: int = 1) -> dict:
     """Get the n scenes before and after a scene in the same video (to extend a good clip)."""
-    previous, following = find_neighbors(scene_id, n=max(1, min(n, 5)))
-    return {"previous": previous, "next": following}
+    previous, following = storage.get_scene_neighbors(scene_id, n=max(1, min(n, 5)))
+    return {"previous": [_scene_card(s) for s in previous], "next": [_scene_card(s) for s in following]}
 
 
 @mcp.tool()
@@ -143,7 +148,7 @@ def export_shotcut(clips: list[dict], output_path: str) -> str:
         except KeyError as e:
             raise ValueError(f"clip is missing {e}: {clip}")
 
-        path = get_video_path(video_id)
+        path = storage.get_video_path(video_id)
         start_ms = max(int(start_ms), 0)
         end_ms = min(int(end_ms), get_duration_ms(path))   # не выходим за конец видео
         if start_ms >= end_ms:
@@ -152,11 +157,14 @@ def export_shotcut(clips: list[dict], output_path: str) -> str:
         scenes.append(Scene(start_ms=start_ms, end_ms=end_ms, video_path=path))
 
     output_path = os.path.abspath(output_path)
-    export_mlt(scenes, output_path)
+    export_mlt(scenes, output_path, width=1920, height=1080, fps=30)
     return output_path
+
+
+VIDEO_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test")   # пока захардкожено
 
 
 if __name__ == "__main__":
     setup_logging()
-    init_sql_db()
+    storage.init_storage(VIDEO_FOLDER)
     mcp.run(transport="stdio")

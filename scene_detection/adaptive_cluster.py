@@ -1,9 +1,9 @@
 from statistics import median
 
-from models.interfaces import Vec
+from models import Vec
 
 
-class AdaptiveSplitter:
+class AdaptiveClusterer:
     """
     Реализация Splitter: режет сцены по скачкам расстояния между соседними кадрами.
     Порог считается адаптивно по самой выборке: медиана + k * MAD.

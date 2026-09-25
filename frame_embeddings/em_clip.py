@@ -1,34 +1,26 @@
 import logging
 
 import torch
-from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
+from device import pick_device
 
-from models.embedding import ClipEmbedding
-from models.interfaces import Frame, Vec
+from frame_embeddings import EmVector
+from models import Frame, Vec
 
 logger = logging.getLogger(__name__)
-
-
-def _pick_device() -> str:
-    if torch.cuda.is_available():
-        return "cuda"
-    if torch.backends.mps.is_available():
-        return "mps"
-    return "cpu"
 
 
 class ClipEmbedder:
     """Реализация Embedder: кадры (мс, картинка) -> признаки (мс, ClipEmbedding)."""
 
     def __init__(
-        self,
-        model_name: str = "openai/clip-vit-large-patch14",
-        batch_size: int = 32,
-        device: str | None = None,
+            self,
+            model_name: str = "openai/clip-vit-large-patch14",
+            batch_size: int = 32,
+            device: str | None = None,
     ):
         self.batch_size = batch_size
-        self.device = device or _pick_device()
+        self.device = device or pick_device()
 
         logger.info("Загрузка CLIP: %s", model_name)
         self._processor = CLIPProcessor.from_pretrained(model_name)
@@ -55,6 +47,6 @@ class ClipEmbedder:
                 embeds = output
 
             embeds = embeds.cpu().numpy()
-            results.extend((t, ClipEmbedding(v)) for t, v in zip(times, embeds))
+            results.extend((t, EmVector(v)) for t, v in zip(times, embeds))
 
         return results

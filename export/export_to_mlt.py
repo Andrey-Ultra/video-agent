@@ -47,9 +47,9 @@ def _add_chain(root, chain_id: str, path: str, full_ms: int, *, video: bool) -> 
 def export_mlt(
         scenes: list[Scene],
         out_path: str,
-        width: int = 1920,
-        height: int = 1080,
-        fps: int = 30,
+        width: int,
+        height: int,
+        fps: int,
 ) -> None:
     """
     Сохраняет сцены в MLT-проект (Shotcut). Порядок списка = порядок на таймлайне.
@@ -133,3 +133,13 @@ def export_mlt(
 
     ET.indent(root)
     ET.ElementTree(root).write(out_path, encoding="utf-8", xml_declaration=True)
+
+
+class MLTExporter:
+    def __init__(self, width: int = 1920, height: int = 1080, fps: int = 30) -> None:
+        self.width = width
+        self.height = height
+        self.fps = fps
+
+    def __call__(self, scenes: list[Scene], path: str) -> None:
+        export_mlt(scenes, path, self.width, self.height, self.fps)

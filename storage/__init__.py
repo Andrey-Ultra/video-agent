@@ -2,7 +2,12 @@ import os
 
 from .sql_db import init_sql_db
 from .chm_db import init_vector_store
-from .saver import has_video, create_video, add_scene
+from .sql_db import SceneRecord
+from .library import (
+    has_video, create_video, get_video_path,
+    add_scene, get_scene, get_scenes, get_scene_neighbors, search_scenes,
+    count_scenes, list_scenes,
+)
 
 LIB_DIR = ".video-agent"
 
