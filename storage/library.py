@@ -74,3 +74,15 @@ def search_scenes(query_vector: np.ndarray, top_k: int = 10) -> list[tuple[Scene
     hits = chm_db.search(query_vector, top_k=top_k)
     distances = dict(hits)
     return [(scene, distances[scene.id]) for scene in get_scenes([scene_id for scene_id, _ in hits])]
+
+
+# =================
+#       OCR
+# =================
+
+def add_ocr_spans(video_path: str, spans: list[tuple[int, int, str]]) -> None:
+    """Сохраняет распознанный текст видео: [(start_ms, end_ms, text), ...], границы включительны."""
+    video_id = sql_db.get_video_id_by_path(video_path)
+    if video_id is None:
+        raise ValueError(f"Видео не найдено: {video_path}")
+    sql_db.add_ocr_spans(video_id, spans)

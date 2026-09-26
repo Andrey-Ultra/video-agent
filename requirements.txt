@@ -6,3 +6,6 @@ transformers
 ffmpeg-python
 python-dotenv
 chromadb
+
+easyocr
+rapidfuzz

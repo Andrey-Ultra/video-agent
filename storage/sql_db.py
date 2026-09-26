@@ -38,11 +38,10 @@ class SceneRecord(BaseModel):
 
 
 class OcrSpan(BaseModel):
-    scene = ForeignKeyField(SceneRecord, backref="ocr", on_delete="CASCADE")
-    start_ms = IntegerField()
+    video = ForeignKeyField(Video, backref="ocr_spans", on_delete="CASCADE")
+    start_ms = IntegerField() # Обе границы включительны!
     end_ms = IntegerField()
-    text = TextField()      # как распознал OCR — для показа
-    norm = TextField()      # нормализованный — для поиска
+    text = TextField()
 
 
 def init_sql_db(db_path: str) -> None:
@@ -60,6 +59,20 @@ def add_video(video_hash: str, path: str, meta: dict) -> int:
 def add_scene(video_id: int, start_ms: int, end_ms: int) -> int:
     """Добавляет сцену в БД и возвращает её id."""
     return SceneRecord.create(video=video_id, start_ms=start_ms, end_ms=end_ms).id
+
+def add_ocr_span(video_id: int, start_ms: int, end_ms: int, text: str) -> int:
+    """Добавляет кусок распознанного текста (границы включительны) и возвращает его id."""
+    return OcrSpan.create(video=video_id, start_ms=start_ms, end_ms=end_ms, text=text).id
+
+def add_ocr_spans(video_id: int, spans: list[tuple[int, int, str]]) -> None:
+    """Добавляет сразу много кусков [(start_ms, end_ms, text), ...] одной транзакцией."""
+    rows = [
+        {"video": video_id, "start_ms": start_ms, "end_ms": end_ms, "text": text}
+        for start_ms, end_ms, text in spans
+    ]
+    with db.atomic():
+        for i in range(0, len(rows), 100):   # у SQLite есть лимит на число параметров в одном запросе
+            OcrSpan.insert_many(rows[i:i + 100]).execute()
 
 # =================
 #      GETTERS
