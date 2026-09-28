@@ -64,6 +64,17 @@ def add_ocr_span(video_id: int, start_ms: int, end_ms: int, text: str) -> int:
     """Добавляет кусок распознанного текста (границы включительны) и возвращает его id."""
     return OcrSpan.create(video=video_id, start_ms=start_ms, end_ms=end_ms, text=text).id
 
+def get_ocr_spans_in_range(video_id: int, start_ms: int, end_ms: int) -> list[OcrSpan]:
+    """Отрезки, чей диапазон пересекается с [start_ms, end_ms] (границы включительны)."""
+    return list(
+        OcrSpan.select()
+        .where((OcrSpan.video == video_id) & (OcrSpan.start_ms <= end_ms) & (OcrSpan.end_ms >= start_ms))
+        .order_by(OcrSpan.start_ms)
+    )
+
+def get_all_ocr_spans() -> list[OcrSpan]:
+    return list(OcrSpan.select())
+
 def add_ocr_spans(video_id: int, spans: list[tuple[int, int, str]]) -> None:
     """Добавляет сразу много кусков [(start_ms, end_ms, text), ...] одной транзакцией."""
     rows = [

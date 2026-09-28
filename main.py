@@ -8,7 +8,7 @@ import time
 
 from scene_detection import PySceneDetector
 from video_embeddings.em_xclip import scene_to_vec
-from ocr import scene_to_text_chunks, EasyOcrExtractor
+from ocr import scene_to_text_chunks, VisionOcrExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 def main():
     setup_logging()
 
-    folder = "/home/au/Документы/git/video-agent/test"
-    scene_detector = PySceneDetector(threshold=40.0)
-    ocr_extractor = EasyOcrExtractor()
+    folder = "/Volumes/Interesting/OBS/"
+    scene_detector = PySceneDetector()
+    ocr_extractor = VisionOcrExtractor()
     storage.init_storage(folder)
 
     mas = storage.find_videos(folder)
@@ -26,6 +26,8 @@ def main():
 
 
     for i, video_path in enumerate(mas, 1):
+        logger.info(f"Обработано: {i}/{len(mas)}")
+
         name = os.path.basename(video_path)
         if storage.has_video(video_path):
             logger.info(f"[{i}/{len(mas)}] {name}: уже в базе, пропускаю")
@@ -34,6 +36,7 @@ def main():
         t0 = time.time()
 
         video_id = storage.create_video(video_path)
+
 
         logger.info(f"[{i}/{len(mas)}] Обработка видео {video_path}")
 

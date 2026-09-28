@@ -17,13 +17,17 @@ logger = logging.getLogger(__name__)
 
 INSTRUCTIONS = """
 Video editing assistant. It works with a library of videos that were already cut into scenes.
-Every scene has a scene_id, a time range and an English text description.
+Every scene has a scene_id and a time range. There are two independent ways to find scenes:
+- search_scenes(query) / search_videos(query): semantic visual search over a CLIP embedding
+  of each scene (what the scene looks like). Queries MUST be in English.
+- search_ocr(query): literal on-screen text search (subtitles, captions, signs, UI, chat, code)
+  recognized via OCR. Query can be Russian or English.
 
 Typical workflow:
-1. Find candidates: search_scenes(query) for scenes, or search_videos(query) to find which videos fit.
-   Queries MUST be in English (translate the user's request).
-2. Read the descriptions in the results. Use get_frame(video_id, time_s) only when you need to
-   actually see a moment.
+1. Find candidates with search_scenes/search_videos (visual meaning) and/or search_ocr (on-screen
+   text), whichever fits the request.
+2. Call scene_info(scene_id) to read any on-screen text found in that scene. Use
+   get_frame(video_id, time_s) only when you need to actually see a moment.
 3. Explore a good video with list_scenes(video_id), or extend a good clip with get_neighbors(scene_id).
 4. Assemble the result with export_shotcut(clips, output_path). Each clip is
    {"video_id", "start_ms", "end_ms"}: take video_id and the times from scene cards (converted
@@ -107,8 +111,30 @@ def list_scenes(video_id: int, offset: int = 0, limit: int = 30) -> dict:
 
 @mcp.tool()
 def scene_info(scene_id: int) -> dict:
-    """Full card of one scene: video, start/end/duration in seconds and description."""
-    return _scene_card(storage.get_scene(scene_id))
+    """Full card of one scene: video, start/end/duration in seconds, and any on-screen text (OCR) found in it."""
+    scene = storage.get_scene(scene_id)
+    card = _scene_card(scene)
+    card["on_screen_text"] = storage.get_scene_ocr_text(scene)
+    return card
+
+
+@mcp.tool()
+def search_ocr(query: str, top_k: int = 10) -> list[dict]:
+    """
+    Search for scenes containing specific on-screen text (subtitles, captions, signs, UI text,
+    chat/code on screen) recognized via OCR. Unlike search_scenes (visual/semantic meaning),
+    this matches literal text. Query can be Russian or English. Returns cards with the matched
+    text and a fuzzy match 'score' (0-100, higher is better).
+    """
+    hits = storage.search_ocr(query, top_k=min(top_k, 30))
+    return [{
+        "video_id": span.video_id,
+        "video": os.path.basename(storage.get_video_path(span.video_id)),
+        "start_s": round(span.start_ms / 1000, 2),
+        "end_s": round(span.end_ms / 1000, 2),
+        "text": span.text,
+        "score": round(score, 1),
+    } for span, score in hits]
 
 
 @mcp.tool()
@@ -161,7 +187,7 @@ def export_shotcut(clips: list[dict], output_path: str) -> str:
     return output_path
 
 
-VIDEO_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test")   # пока захардкожено
+VIDEO_FOLDER = "/Volumes/Interesting/OBS/"   # пока захардкожено
 
 
 if __name__ == "__main__":

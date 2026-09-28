@@ -1,6 +1,7 @@
 import logging
 
 from .easy_ocr import EasyOcrExtractor
+from .mac_ocr import VisionOcrExtractor
 from .text import normalize, similarity
 
 from models import Scene

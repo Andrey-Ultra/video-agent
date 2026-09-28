@@ -9,8 +9,11 @@ from . import sql_db
 from . import chm_db
 from .sql_db import SceneRecord, count_scenes, list_scenes
 from video import read_metadata, fast_hash
+from ocr.text import contains_score
 
 from models import Scene
+
+MIN_OCR_SCORE = 60.0
 
 
 # =================
@@ -86,3 +89,17 @@ def add_ocr_spans(video_path: str, spans: list[tuple[int, int, str]]) -> None:
     if video_id is None:
         raise ValueError(f"Видео не найдено: {video_path}")
     sql_db.add_ocr_spans(video_id, spans)
+
+
+def search_ocr(query: str, top_k: int = 10) -> list[tuple[sql_db.OcrSpan, float]]:
+    """Нечёткий поиск по распознанному тексту на экране. Возвращает [(span, score)], лучшие первыми."""
+    scored = [(s, contains_score(query, s.text)) for s in sql_db.get_all_ocr_spans()]
+    scored = [x for x in scored if x[1] >= MIN_OCR_SCORE]
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return scored[:top_k]
+
+
+def get_scene_ocr_text(scene: SceneRecord) -> list[str]:
+    """Тексты из OCR, чьи отрезки пересекаются с диапазоном сцены, в хронологическом порядке."""
+    spans = sql_db.get_ocr_spans_in_range(scene.video_id, scene.start_ms, scene.end_ms)
+    return [s.text for s in spans]

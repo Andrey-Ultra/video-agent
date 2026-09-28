@@ -14,3 +14,8 @@ def normalize(text: str) -> str:
 def similarity(a: str, b: str) -> float:
     """Возвращает похожесть двух строк от 0 до 100."""
     return fuzz.ratio(normalize(a), normalize(b))
+
+
+def contains_score(query: str, text: str) -> float:
+    """Насколько хорошо query встречается внутри text (устойчиво к опечаткам OCR), от 0 до 100."""
+    return fuzz.partial_ratio(normalize(query), normalize(text))
